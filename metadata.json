@@ -1,0 +1,6 @@
+{
+  "name": "GitSync Studio",
+  "description": "Smart GitHub Sync app allowing Google/GitHub/Email login, ZIP source extraction, change diff detection, and incremental file pushing to GitHub repositories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
