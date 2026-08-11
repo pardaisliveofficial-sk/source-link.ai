@@ -74,11 +74,37 @@ jobs:
           cd android
           gradle assembleRelease bundleRelease --stacktrace --no-daemon
 
+      - name: Sign Release APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release.keystore
+
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -n 1)
+
+          "$BUILD_TOOLS/zipalign" -f 4 \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks android/release.keystore \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass pass:"$ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass pass:"$ANDROID_KEY_PASSWORD" \
+            --out android/app/build/outputs/apk/release/app-release.apk \
+            android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" verify --verbose \
+            android/app/build/outputs/apk/release/app-release.apk
+
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sourcelink-app-release-builds
           path: |
-            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
