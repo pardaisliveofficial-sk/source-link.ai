@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Github, Mail, Lock, User as UserIcon, Key, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { loginEmailUser, registerEmailUser, loginGoogleUser, loginGitHubUser } from '../lib/auth';
+import { loginEmailUserApi, registerEmailUserApi, loginGoogleUser, connectGitHubAccountApi, loginGitHubUser } from '../lib/auth';
 import { getGitHubUser } from '../lib/github';
 import { User } from '../types';
 
@@ -33,7 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   // Handle Email Submit
-  const handleEmailAuth = (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
@@ -46,13 +46,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (password.length < 6) {
           throw new Error('Password must be at least 6 characters long.');
         }
-        const user = registerEmailUser(name, email, password);
+        const { user } = await registerEmailUserApi(name, email, password);
         onSuccess(user);
       } else {
         if (!email || !password) {
           throw new Error('Please enter your email and password.');
         }
-        const user = loginEmailUser(email, password);
+        const user = await loginEmailUserApi(email, password);
         onSuccess(user);
       }
     } catch (err: any) {
@@ -84,14 +84,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsLoading(true);
     try {
-      const ghProfile = await getGitHubUser(githubTokenInput.trim());
-      const user = loginGitHubUser(
-        ghProfile.login,
-        githubTokenInput.trim(),
-        ghProfile.avatar_url,
-        ghProfile.email
-      );
-      onSuccess(user, githubTokenInput.trim());
+      const token = githubTokenInput.trim();
+      const ghProfile = await getGitHubUser(token);
+      
+      const user = loginGitHubUser(ghProfile.login, token, ghProfile.avatar_url);
+      onSuccess(user, token);
     } catch (err: any) {
       setError(`GitHub validation failed: ${err.message}. Make sure the token has 'repo' scope.`);
     } finally {
