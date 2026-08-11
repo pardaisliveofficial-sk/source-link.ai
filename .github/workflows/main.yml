@@ -46,6 +46,30 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
+
+      - name: Validate and Repair Gradle Wrapper
+        shell: bash
+        run: |
+          set -e
+          WRAPPER_JAR="android/gradle/wrapper/gradle-wrapper.jar"
+          EXPECTED_SHA256="7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172"
+          WRAPPER_URL="https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradle/wrapper/gradle-wrapper.jar"
+
+          if [ ! -f "$WRAPPER_JAR" ] || ! unzip -t "$WRAPPER_JAR" >/dev/null 2>&1; then
+            echo "Gradle wrapper JAR is missing or corrupt. Downloading the verified Gradle 8.14.3 wrapper..."
+            curl -fsSL "$WRAPPER_URL" -o "$WRAPPER_JAR"
+          fi
+
+          ACTUAL_SHA256="$(sha256sum "$WRAPPER_JAR" | awk '{print $1}')"
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "ERROR: Gradle wrapper JAR checksum mismatch."
+            echo "Expected: $EXPECTED_SHA256"
+            echo "Actual:   $ACTUAL_SHA256"
+            exit 1
+          fi
+
+          echo "Gradle wrapper JAR verified: $ACTUAL_SHA256"
+
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x android/gradlew
 
@@ -87,3 +111,4 @@ jobs:
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
+          
