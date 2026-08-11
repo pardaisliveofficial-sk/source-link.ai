@@ -407,7 +407,8 @@ async function startServer() {
 
   // GitHub OAuth URLs & Callbacks
   app.get('/api/github/oauth/url', (req, res) => {
-    const clientId = process.env.GITHUB_CLIENT_ID || 'dummy_client_id';
+    const clientId = process.env.GH_CLIENT_ID || process.env.GITHUB_CLIENT_ID || 'dummy_client_id';
+    const clientSecret = process.env.GH_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET;
     
     // Calculate API Base URL for callback
     const host = req.headers.host || '';
@@ -425,7 +426,7 @@ async function startServer() {
 
     return res.json({
       authUrl,
-      configured: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
+      configured: Boolean(clientId && clientSecret && clientId !== 'dummy_client_id')
     });
   });
 
@@ -446,8 +447,8 @@ async function startServer() {
     }
 
     try {
-      const clientId = process.env.GITHUB_CLIENT_ID;
-      const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+      const clientId = process.env.GH_CLIENT_ID || process.env.GITHUB_CLIENT_ID;
+      const clientSecret = process.env.GH_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET;
 
       if (!clientId || !clientSecret) {
         return res.redirect(`${frontendBaseUrl}/?oauth=error&message=GitHub+OAuth+not+configured+on+server.+Use+Personal+Access+Token.`);
