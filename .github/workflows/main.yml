@@ -1,0 +1,177 @@
+name: SourceLink Android Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android APK & AAB
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Web Application
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://api.sourcelinkai.soulverseapps.com' }}
+          GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+        run: bun run build
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          validate-wrappers: false
+
+      - name: Repair Gradle Wrapper
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.13 --distribution-type bin
+
+      - name: Grant Gradle Permission
+        run: |
+          chmod +x android/gradlew
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          gradle assembleDebug --stacktrace --no-daemon
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sourcelink-app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Build Release APK & AAB
+        run: |
+          cd android
+          gradle assembleRelease bundleRelease --stacktrace --no-daemon
+
+      - name: Sign Release APK & AAB
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+
+          echo "Decoding Android signing keystore..."
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" \
+            | tr -d '\r\n ' \
+            | base64 --decode \
+            > android/release.keystore
+
+          test -s android/release.keystore
+
+          echo "Reading signing key..."
+
+          KEY_ALIAS=$(keytool -list \
+            -v \
+            -keystore android/release.keystore \
+            -storetype PKCS12 \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            | awk -F': ' '/Alias name:/ {print $2; exit}')
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "ERROR: No signing alias found in keystore."
+            exit 1
+          fi
+
+          echo "Signing alias detected successfully."
+
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" \
+            -maxdepth 1 \
+            -mindepth 1 \
+            -type d \
+            | sort -V \
+            | tail -n 1)
+
+          echo "Using Android Build Tools: $BUILD_TOOLS"
+
+          echo "Aligning release APK..."
+
+          "$BUILD_TOOLS/zipalign" -f 4 \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          echo "Signing release APK..."
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks android/release.keystore \
+            --ks-type PKCS12 \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass pass:"$ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass pass:"$ANDROID_KEY_PASSWORD" \
+            --out android/app/build/outputs/apk/release/app-release.apk \
+            android/app/build/outputs/apk/release/app-release-aligned.apk
+
+          echo "Verifying signed APK..."
+
+          "$BUILD_TOOLS/apksigner" verify \
+            --verbose \
+            android/app/build/outputs/apk/release/app-release.apk
+
+          echo "Signing release AAB..."
+
+          jarsigner \
+            -verbose \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            -keystore android/release.keystore \
+            -storetype PKCS12 \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -keypass "$ANDROID_KEY_PASSWORD" \
+            -signedjar android/app/build/outputs/bundle/release/app-release-signed.aab \
+            android/app/build/outputs/bundle/release/app-release.aab \
+            "$KEY_ALIAS"
+
+          echo "Verifying signed AAB..."
+
+          jarsigner -verify \
+            -verbose \
+            android/app/build/outputs/bundle/release/app-release-signed.aab
+
+          echo "Signing completed successfully."
+
+      - name: Upload Signed Release APK & AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: sourcelink-app-signed-release-builds
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release-signed.aab
+          retention-days: 14
