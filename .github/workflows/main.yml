@@ -74,7 +74,7 @@ jobs:
           cd android
           gradle assembleRelease bundleRelease --stacktrace --no-daemon
 
-      - name: Sign Release APK
+      Release APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
