@@ -49,13 +49,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
+          gradle-version: '8.13'
           validate-wrappers: false
 
       - name: Repair Gradle Wrapper
         run: |
           cd android
-          gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+          gradle wrapper --gradle-version 8.13 --distribution-type bin
 
       - name: Build Debug APK
         run: |
