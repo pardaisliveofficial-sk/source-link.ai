@@ -23,12 +23,17 @@ import { User, ExtractedFile, FileDiff, GitHubRepo, SyncLog, MainViewTab } from 
 import { ZipExtractionResult } from './lib/zipExtractor';
 import { setupAndroidBackButton } from './lib/capacitor';
 import { apiFetch } from './lib/api';
-import { Sparkles, CheckCircle2, ShieldCheck, ArrowRight, UploadCloud, GitBranch, FolderGit2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, ShieldCheck, ArrowRight, UploadCloud, GitBranch, FolderGit2, ChevronLeft, ChevronRight, Layers, LayoutGrid, FileCode, GitCompare, FileArchive } from 'lucide-react';
 
 export default function App() {
   // Navigation & SaaS State
   const [currentTab, setCurrentTab] = useState<MainViewTab>('workspace');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  // Step-by-Step Workspace Slider State (1: Upload & Repo, 2: Diff & Sync, 3: Code Workspace)
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [viewMode, setViewMode] = useState<'step' | 'all'>('step');
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Application Core Sync State
   const [user, setUser] = useState<User | null>(getStoredUser);
@@ -302,7 +307,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white w-full max-w-full overflow-x-hidden min-w-0">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -457,20 +462,20 @@ export default function App() {
 
       {/* Main Studio Workspace Tab */}
       {currentTab === 'workspace' && (
-        <div className="flex-1 flex flex-col bg-[#F9FAFB] text-gray-900">
+        <div className="flex-1 flex flex-col bg-[#F9FAFB] text-gray-900 min-h-0">
           
           {/* Studio Hero Bar */}
-          <div className="bg-white border-b border-gray-200 py-6 px-4 lg:px-8 shadow-xs">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-white border-b border-gray-200 py-3.5 sm:py-5 px-3 sm:px-6 lg:px-8 shadow-2xs">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2.5">
-                  GitHub Smart Code Sync
-                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                  <span>GitHub Smart Code Sync</span>
+                  <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
                     Delta Engine
                   </span>
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-2xl">
-                  Upload any source code <strong className="text-gray-800 font-semibold">.ZIP file</strong>. The app automatically extracts the code, compares changes against your GitHub repository, and pushes <strong className="text-blue-600 font-semibold">only modified/added files</strong>!
+                <p className="text-xs text-gray-500 mt-0.5 max-w-2xl hidden sm:block">
+                  Upload any source code <strong className="text-gray-800 font-semibold">.ZIP file</strong>. The app extracts code, compares changes against GitHub, and pushes <strong className="text-blue-600 font-semibold">only modified/added files</strong>!
                 </p>
               </div>
 
@@ -478,61 +483,274 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleOpenAuthModal('login')}
-                  className="px-4 py-2.5 bg-[#24292F] hover:bg-black text-white font-medium text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
+                  className="px-3.5 py-1.5 sm:py-2 bg-[#24292F] hover:bg-black text-white font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
                 >
-                  <GitBranch className="w-4 h-4" /> Connect GitHub PAT
+                  <GitBranch className="w-3.5 h-3.5" /> Connect GitHub PAT
                 </button>
               )}
             </div>
           </div>
 
-          {/* Main Content Workspace Grid */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
-            
-            {/* Step 1 & 2 Grid: ZIP Upload & GitHub Repo Picker */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ZipUploader
-                onFilesExtracted={handleFilesExtracted}
-                isExtracting={isExtracting}
-                extractedCount={extractedFiles ? extractedFiles.size : 0}
-                currentZipName={zipName}
-                extractionMeta={extractionMeta}
-              />
+          {/* Step Navigation Pill Bar */}
+          <div className="bg-slate-900 border-b border-slate-800 sticky top-[56px] sm:top-[64px] z-30 shadow-md">
+            <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-2">
+              
+              {/* Step Tabs / Pills */}
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setActiveStep(1); setViewMode('step'); }}
+                  className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    activeStep === 1 && viewMode === 'step'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  <FileArchive className="w-3.5 h-3.5 text-blue-300" />
+                  <span>1. ZIP & Repo</span>
+                  {extractedFiles.size > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  )}
+                </button>
 
-              <RepoSelector
-                githubToken={githubToken}
-                selectedRepo={selectedRepo}
-                targetBranch={targetBranch}
-                onSelectRepo={handleSelectRepo}
-                onChangeBranch={(b) => {
-                  setTargetBranch(b);
-                  if (extractedFiles.size > 0 && githubToken && selectedRepo) {
-                    handleRunDiff(extractedFiles, githubToken, selectedRepo, b);
-                  }
-                }}
-                onOpenAuth={() => handleOpenAuthModal('login')}
-              />
+                <button
+                  type="button"
+                  onClick={() => { setActiveStep(2); setViewMode('step'); }}
+                  className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    activeStep === 2 && viewMode === 'step'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  <GitCompare className="w-3.5 h-3.5 text-amber-300" />
+                  <span>2. Diff & Sync</span>
+                  {fileDiffs.filter(d => d.status !== 'unchanged').length > 0 && (
+                    <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 text-[10px] font-mono rounded-full border border-amber-500/30">
+                      {fileDiffs.filter(d => d.status !== 'unchanged').length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveStep(3); setViewMode('step'); }}
+                  className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    activeStep === 3 && viewMode === 'step'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  <FileCode className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>3. Code Editor</span>
+                </button>
+              </div>
+
+              {/* View Mode Switcher Button */}
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === 'step' ? 'all' : 'step')}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 shrink-0 border border-slate-700"
+                title={viewMode === 'step' ? 'Switch to view all sections on one page' : 'Switch to step-by-step slider'}
+              >
+                {viewMode === 'step' ? (
+                  <>
+                    <LayoutGrid className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="hidden sm:inline">Show All</span>
+                  </>
+                ) : (
+                  <>
+                    <Layers className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="hidden sm:inline">Step View</span>
+                  </>
+                )}
+              </button>
             </div>
+          </div>
 
-            {/* Step 3: Smart Diff & Target Push Panel */}
-            <DiffViewer
-              diffs={fileDiffs}
-              isDiffing={isDiffing}
-              isPushing={isPushing}
-              selectedRepo={selectedRepo}
-              targetBranch={targetBranch}
-              onRunDiff={() => handleRunDiff()}
-              onOpenPushModal={handleOpenPushModal}
-              onSelectFileForInspector={(p) => setInspectorPath(p)}
-            />
+          {/* Main Content Workspace Slide Stage */}
+          <main
+            onTouchStart={(e) => {
+              setTouchStartX(e.touches[0].clientX);
+            }}
+            onTouchEnd={(e) => {
+              if (touchStartX === null) return;
+              const touchEndX = e.changedTouches[0].clientX;
+              const diff = touchStartX - touchEndX;
+              if (Math.abs(diff) > 50 && viewMode === 'step') {
+                if (diff > 0 && activeStep < 3) {
+                  setActiveStep((prev) => (prev + 1) as 1 | 2 | 3);
+                } else if (diff < 0 && activeStep > 1) {
+                  setActiveStep((prev) => (prev - 1) as 1 | 2 | 3);
+                }
+              }
+              setTouchStartX(null);
+            }}
+            className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-5"
+          >
+            {/* View Mode: STEP SLIDER */}
+            {viewMode === 'step' ? (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                
+                {/* STEP 1: Upload ZIP & Select GitHub Repo */}
+                {activeStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                      <ZipUploader
+                        onFilesExtracted={handleFilesExtracted}
+                        isExtracting={isExtracting}
+                        extractedCount={extractedFiles ? extractedFiles.size : 0}
+                        currentZipName={zipName}
+                        extractionMeta={extractionMeta}
+                      />
 
-            {/* Step 4: Live Code Editor Workspace */}
-            <CodeWorkspace
-              files={extractedFiles}
-              selectedPath={inspectorPath}
-              onSelectPath={(p) => setInspectorPath(p)}
-              onUpdateFileContent={handleUpdateFileContent}
-            />
+                      <RepoSelector
+                        githubToken={githubToken}
+                        selectedRepo={selectedRepo}
+                        targetBranch={targetBranch}
+                        onSelectRepo={handleSelectRepo}
+                        onChangeBranch={(b) => {
+                          setTargetBranch(b);
+                          if (extractedFiles.size > 0 && githubToken && selectedRepo) {
+                            handleRunDiff(extractedFiles, githubToken, selectedRepo, b);
+                          }
+                        }}
+                        onOpenAuth={() => handleOpenAuthModal('login')}
+                      />
+                    </div>
+
+                    {/* Step 1 Slide Footer */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-2xs flex items-center justify-between gap-3">
+                      <div className="text-xs text-gray-500 font-medium">
+                        Step 1 of 3: <span className="text-gray-900 font-semibold">Upload ZIP & Select Destination Repository</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(2)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                      >
+                        <span>Step 2: Compare Diffs</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: Smart Diff & Target Push Panel */}
+                {activeStep === 2 && (
+                  <div className="space-y-4">
+                    <DiffViewer
+                      diffs={fileDiffs}
+                      isDiffing={isDiffing}
+                      isPushing={isPushing}
+                      selectedRepo={selectedRepo}
+                      targetBranch={targetBranch}
+                      onRunDiff={() => handleRunDiff()}
+                      onOpenPushModal={handleOpenPushModal}
+                      onSelectFileForInspector={(p) => setInspectorPath(p)}
+                    />
+
+                    {/* Step 2 Slide Footer Navigation */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-2xs flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(1)}
+                        className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Step 1: Source ZIP</span>
+                      </button>
+
+                      <div className="text-xs text-gray-500 font-medium hidden sm:block">
+                        Swipe or click to navigate steps
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(3)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition cursor-pointer shadow-xs shrink-0"
+                      >
+                        <span>Step 3: Code Editor</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3: Live Code Editor Workspace */}
+                {activeStep === 3 && (
+                  <div className="space-y-4">
+                    <CodeWorkspace
+                      files={extractedFiles}
+                      selectedPath={inspectorPath}
+                      onSelectPath={(p) => setInspectorPath(p)}
+                      onUpdateFileContent={handleUpdateFileContent}
+                    />
+
+                    {/* Step 3 Slide Footer Navigation */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-2xs flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(2)}
+                        className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Step 2: Compare Diffs</span>
+                      </button>
+
+                      <div className="text-xs text-gray-500 font-medium">
+                        Step 3 of 3: <span className="text-gray-900 font-semibold">Live Workspace Editor</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              /* View Mode: FULL EXPANDED PAGE */
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ZipUploader
+                    onFilesExtracted={handleFilesExtracted}
+                    isExtracting={isExtracting}
+                    extractedCount={extractedFiles ? extractedFiles.size : 0}
+                    currentZipName={zipName}
+                    extractionMeta={extractionMeta}
+                  />
+
+                  <RepoSelector
+                    githubToken={githubToken}
+                    selectedRepo={selectedRepo}
+                    targetBranch={targetBranch}
+                    onSelectRepo={handleSelectRepo}
+                    onChangeBranch={(b) => {
+                      setTargetBranch(b);
+                      if (extractedFiles.size > 0 && githubToken && selectedRepo) {
+                        handleRunDiff(extractedFiles, githubToken, selectedRepo, b);
+                      }
+                    }}
+                    onOpenAuth={() => handleOpenAuthModal('login')}
+                  />
+                </div>
+
+                <DiffViewer
+                  diffs={fileDiffs}
+                  isDiffing={isDiffing}
+                  isPushing={isPushing}
+                  selectedRepo={selectedRepo}
+                  targetBranch={targetBranch}
+                  onRunDiff={() => handleRunDiff()}
+                  onOpenPushModal={handleOpenPushModal}
+                  onSelectFileForInspector={(p) => setInspectorPath(p)}
+                />
+
+                <CodeWorkspace
+                  files={extractedFiles}
+                  selectedPath={inspectorPath}
+                  onSelectPath={(p) => setInspectorPath(p)}
+                  onUpdateFileContent={handleUpdateFileContent}
+                />
+              </div>
+            )}
 
           </main>
         </div>
