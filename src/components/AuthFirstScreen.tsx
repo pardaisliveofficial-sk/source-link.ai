@@ -9,28 +9,37 @@ import {
   CheckCircle2, 
   ShieldCheck, 
   Zap,
-  Smartphone
+  Smartphone,
+  KeyRound,
+  ArrowLeft
 } from 'lucide-react';
-import { loginEmailUserApi, registerEmailUserApi } from '../lib/auth';
+import { loginEmailUserApi, registerEmailUserApi, requestPasswordResetApi, resetPasswordApi } from '../lib/auth';
 import { User } from '../types';
 
 interface AuthFirstScreenProps {
   onAuthSuccess: (user: User, token?: string) => void;
   onViewTerms: () => void;
   onViewPrivacy: () => void;
+  appIconUrl?: string;
+  appName?: string;
 }
 
 export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
   onAuthSuccess,
   onViewTerms,
-  onViewPrivacy
+  onViewPrivacy,
+  appIconUrl,
+  appName
 }) => {
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
+  const [authMode, setAuthMode] = useState<'signup' | 'login' | 'forgot'>('signup');
+  const [forgotStep, setForgotStep] = useState<'request' | 'reset'>('request');
   
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(true);
 
   // Status State
@@ -63,7 +72,7 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
         setTimeout(() => {
           onAuthSuccess(result.user);
         }, 600);
-      } else {
+      } else if (authMode === 'login') {
         if (!email.trim() || !password) throw new Error('Please enter your email and password.');
 
         const user = await loginEmailUserApi(email.trim(), password);
@@ -72,6 +81,28 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
         setTimeout(() => {
           onAuthSuccess(user, user.githubToken);
         }, 600);
+      } else if (authMode === 'forgot') {
+        if (forgotStep === 'request') {
+          if (!email.trim()) throw new Error('Please enter your registered email address.');
+          const res = await requestPasswordResetApi(email.trim());
+          setSuccessMsg(res.message);
+          setForgotStep('reset');
+          if (res.resetCode) {
+            setRecoveryCode(res.resetCode);
+          }
+        } else {
+          if (!email.trim()) throw new Error('Please enter your email address.');
+          if (!recoveryCode.trim()) throw new Error('Please enter the 6-digit recovery code.');
+          if (newPassword.length < 6) throw new Error('New password must be at least 6 characters long.');
+
+          const res = await resetPasswordApi(email.trim(), recoveryCode.trim(), newPassword);
+          setSuccessMsg(res.message);
+          setTimeout(() => {
+            setAuthMode('login');
+            setPassword(newPassword);
+            setForgotStep('request');
+          }, 1500);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your details and try again.');
@@ -93,14 +124,25 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
         {/* Brand Header */}
         <div className="text-center max-w-2xl mx-auto mb-8">
           <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl mb-4">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <GitBranch className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 overflow-hidden p-1 shrink-0">
+              {appIconUrl ? (
+                <img
+                  src={appIconUrl}
+                  alt="App Icon"
+                  className="w-full h-full object-contain rounded-lg"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <GitBranch className="w-5 h-5" />
+              )}
             </div>
-            <span className="text-xl font-black text-white tracking-tight">SourceLink<span className="text-blue-500">.ai</span></span>
+            <span className="text-xl font-black text-white tracking-tight">{appName || 'SourceLink.ai'}</span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            {authMode === 'signup' ? 'Create Your SourceLink Account' : 'Sign In to SourceLink.ai'}
+            {authMode === 'signup' ? 'Create Your SourceLink Account' : authMode === 'login' ? 'Sign In to SourceLink.ai' : 'Reset Account Password'}
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-slate-400">
             Automated ZIP Code Export Sync Engine & AST-Level GitHub Deployment Platform.
@@ -110,39 +152,61 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
         {/* Central Auth Box */}
         <div className="max-w-md mx-auto w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative">
           
-          {/* Tabs: Sign Up vs Log In */}
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('signup');
-                setError(null);
-                setSuccessMsg(null);
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                authMode === 'signup'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Create Account (Sign Up)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('login');
-                setError(null);
-                setSuccessMsg(null);
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                authMode === 'login'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sign In (Log In)
-            </button>
-          </div>
+          {/* Tabs: Sign Up vs Log In vs Forgot */}
+          {authMode !== 'forgot' ? (
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'signup'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Create Account (Sign Up)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'login'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Sign In (Log In)
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setError(null);
+                  setSuccessMsg(null);
+                  setForgotStep('request');
+                }}
+                className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer font-medium"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back to Sign In
+              </button>
+              <span className="text-xs font-bold text-blue-400 flex items-center gap-1">
+                <KeyRound className="w-3.5 h-3.5" />
+                Password Recovery
+              </span>
+            </div>
+          )}
 
           {/* Feedback Messages */}
           {error && (
@@ -179,35 +243,89 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                />
+            {(authMode === 'signup' || authMode === 'login' || authMode === 'forgot') && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                />
+            {(authMode === 'signup' || authMode === 'login') && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-300">Password</label>
+                  {authMode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('forgot');
+                        setForgotStep('request');
+                        setError(null);
+                        setSuccessMsg(null);
+                      }}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 transition cursor-pointer hover:underline font-medium"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {authMode === 'forgot' && forgotStep === 'reset' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">6-Digit Recovery Code</label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={recoveryCode}
+                      onChange={(e) => setRecoveryCode(e.target.value)}
+                      placeholder="123456"
+                      required
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition font-mono tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">New Password</label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      required
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Terms and Conditions Checkbox */}
             {authMode === 'signup' && (
@@ -239,7 +357,17 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
               disabled={isLoading}
               className="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>{isLoading ? 'Processing...' : authMode === 'signup' ? 'Create Account & Verify Email' : 'Sign In'}</span>
+              <span>
+                {isLoading 
+                  ? 'Processing...' 
+                  : authMode === 'signup' 
+                    ? 'Create Account & Verify Email' 
+                    : authMode === 'login' 
+                      ? 'Sign In' 
+                      : forgotStep === 'request'
+                        ? 'Send Password Recovery Code'
+                        : 'Reset Password'}
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
 

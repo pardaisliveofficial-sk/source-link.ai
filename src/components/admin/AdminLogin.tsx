@@ -22,20 +22,29 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
       const res = await apiFetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: email.trim(), password })
       });
 
-
-      const data = await res.json();
+      let data: any = {};
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+        }
+        throw new Error('Invalid response format from server.');
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed.');
+        throw new Error(data.error || 'Authentication failed. Please check your credentials.');
       }
 
       localStorage.setItem('sourcelink_admin_token', data.token);
       onLoginSuccess(data.token, data.admin);
     } catch (err: any) {
-      setError(err.message || 'Login failed.');
+      setError(err.message || 'Login failed. Please verify admin credentials.');
     } finally {
       setLoading(false);
     }

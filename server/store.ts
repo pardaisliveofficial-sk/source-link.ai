@@ -19,17 +19,20 @@ export interface DbSchema {
   systemSettings: any;
 }
 
-// EXACT 4 AUTHORIZED ADMINISTRATORS
+// AUTHORIZED ADMINISTRATORS ALLOWLIST
 export const APPROVED_ADMIN_EMAILS = [
   'saifkhokhar657@gmail.com',
   'sa098086@gmail.com',
   'pardaisliveofficial@gmail.com',
-  'janejahan84@gmail.com'
+  'janejahan84@gmail.com',
+  'admin@sourcelink.ai',
+  'dark330angel@gmail.com'
 ];
 
 export function isAllowedAdmin(email: string): boolean {
   if (!email) return false;
-  return APPROVED_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+  const clean = email.toLowerCase().trim();
+  return APPROVED_ADMIN_EMAILS.includes(clean) || clean === 'admin@sourcelink.ai';
 }
 
 // Initial state seed
@@ -129,7 +132,8 @@ const DEFAULT_SYSTEM_SETTINGS = {
   websiteUrl: 'https://sourcelinkai.soulverseapps.com',
   defaultPlan: 'free',
   trialDaysDefault: 14,
-  maintenanceMode: false
+  maintenanceMode: false,
+  appIconUrl: '/icon-192.png'
 };
 
 const SAMPLE_USERS = [
@@ -293,12 +297,13 @@ export class PersistentDatabase {
 
     APPROVED_ADMIN_EMAILS.forEach((email, idx) => {
       const emailKey = email.toLowerCase().trim();
+      const defaultPwd = (emailKey === 'admin@sourcelink.ai' || emailKey === 'dark330angel@gmail.com') ? 'AdminPassword123!' : 'password123';
       if (!this.data.adminUsers[emailKey]) {
         this.data.adminUsers[emailKey] = {
           id: `adm_${idx + 1}`,
           name: emailKey.split('@')[0],
           email: emailKey,
-          password: idx === 4 ? 'AdminPassword123!' : 'password123',
+          password: defaultPwd,
           role: 'SUPER_ADMIN',
           createdAt: new Date().toISOString()
         };
@@ -310,7 +315,7 @@ export class PersistentDatabase {
           id: `usr_adm_${idx + 1}`,
           name: emailKey.split('@')[0],
           email: emailKey,
-          password: idx === 4 ? 'AdminPassword123!' : 'password123',
+          password: defaultPwd,
           authProvider: 'email',
           plan: 'business',
           status: 'active',

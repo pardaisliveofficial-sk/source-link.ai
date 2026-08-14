@@ -5,6 +5,15 @@ export const APPROVED_ADMIN_EMAILS = [
   'janejahan84@gmail.com'
 ];
 
+export interface SavedGitHubAccount {
+  id: string;
+  username: string;
+  token: string;
+  avatarUrl?: string;
+  label?: string;
+  addedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -13,6 +22,8 @@ export interface User {
   authProvider: 'google' | 'github' | 'email';
   githubToken?: string;
   githubUsername?: string;
+  githubAccounts?: SavedGitHubAccount[];
+  activeGitHubId?: string;
   plan?: 'free' | 'pro' | 'business' | string;
   createdAt?: string;
   status?: 'active' | 'suspended';

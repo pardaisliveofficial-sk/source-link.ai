@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Github, Mail, Lock, User as UserIcon, Key, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { loginEmailUserApi, registerEmailUserApi, loginGoogleUser, connectGitHubAccountApi, loginGitHubUser } from '../lib/auth';
+import { X, Github, Mail, Lock, User as UserIcon, Key, ArrowRight, AlertCircle, CheckCircle2, KeyRound, ArrowLeft } from 'lucide-react';
+import { loginEmailUserApi, registerEmailUserApi, loginGoogleUser, connectGitHubAccountApi, loginGitHubUser, requestPasswordResetApi, resetPasswordApi } from '../lib/auth';
 import { getGitHubUser } from '../lib/github';
 import { User } from '../types';
 
@@ -19,16 +19,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'google' | 'github' | 'email'>('github');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'reset'>('request');
 
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [githubTokenInput, setGithubTokenInput] = useState('');
 
   // Status/error states
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -36,10 +41,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setIsLoading(true);
 
     try {
-      if (isRegistering) {
+      if (isRecoveringPassword) {
+        if (recoveryStep === 'request') {
+          if (!email.trim()) {
+            throw new Error('Please enter your registered email address.');
+          }
+          const res = await requestPasswordResetApi(email.trim());
+          setSuccessMessage(res.message);
+          setRecoveryStep('reset');
+          if (res.resetCode) setRecoveryCode(res.resetCode);
+        } else {
+          if (!email.trim()) throw new Error('Please enter your email address.');
+          if (!recoveryCode.trim()) throw new Error('Please enter the 6-digit recovery code.');
+          if (newPassword.length < 6) throw new Error('New password must be at least 6 characters long.');
+
+          const res = await resetPasswordApi(email.trim(), recoveryCode.trim(), newPassword);
+          setSuccessMessage(res.message);
+          setTimeout(() => {
+            setIsRecoveringPassword(false);
+            setRecoveryStep('request');
+            setPassword(newPassword);
+            setSuccessMessage(null);
+          }, 1500);
+        }
+      } else if (isRegistering) {
         if (!name || !email || !password) {
           throw new Error('Please fill in all fields.');
         }
@@ -175,6 +204,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* Success Alert */}
+        {successMessage && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md text-xs flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>{successMessage}</span>
           </div>
         )}
 
@@ -315,77 +352,183 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Email Register/Login */}
+        {/* Tab 3: Email Register/Login/Recovery */}
         {activeTab === 'email' && (
           <form onSubmit={handleEmailAuth} className="space-y-3.5">
-            {isRegistering && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
-                <div className="relative">
-                  <UserIcon className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Alex Morgan"
-                    className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
-                  />
+            {isRecoveringPassword ? (
+              <>
+                <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRecoveringPassword(false);
+                      setRecoveryStep('request');
+                      setError(null);
+                      setSuccessMessage(null);
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-900 flex items-center gap-1 transition cursor-pointer font-medium"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to Sign In
+                  </button>
+                  <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                    <KeyRound className="w-3.5 h-3.5" />
+                    Password Recovery
+                  </span>
                 </div>
-              </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="alex@example.com"
+                      required
+                      className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
+                    />
+                  </div>
+                </div>
+
+                {recoveryStep === 'reset' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">6-Digit Recovery Code</label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          value={recoveryCode}
+                          onChange={(e) => setRecoveryCode(e.target.value)}
+                          placeholder="123456"
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600 font-mono tracking-wider"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">New Password</label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="At least 6 characters"
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span>{recoveryStep === 'request' ? 'Send Password Recovery Code' : 'Reset Password'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                {isRegistering && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
+                    <div className="relative">
+                      <UserIcon className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Alex Morgan"
+                        className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="alex@example.com"
+                      className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">Password</label>
+                    {!isRegistering && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecoveringPassword(true);
+                          setRecoveryStep('request');
+                          setError(null);
+                          setSuccessMessage(null);
+                        }}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 transition-colors cursor-pointer hover:underline font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-2.5 px-4 bg-[#24292F] hover:bg-black text-white text-xs font-medium rounded-md transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      {isRegistering ? 'Register Account' : 'Sign In'}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsRegistering(!isRegistering); setError(null); setSuccessMessage(null); }}
+                    className="text-xs text-gray-500 hover:text-blue-600 transition-colors cursor-pointer font-medium"
+                  >
+                    {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
+                  </button>
+                </div>
+              </>
             )}
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex@example.com"
-                  className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-white border border-gray-300 rounded-md pl-9 pr-3 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-[#24292F] hover:bg-black text-white text-xs font-medium rounded-md transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  {isRegistering ? 'Register Account' : 'Sign In'}
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => { setIsRegistering(!isRegistering); setError(null); }}
-                className="text-xs text-gray-500 hover:text-blue-600 transition-colors cursor-pointer font-medium"
-              >
-                {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
-              </button>
-            </div>
           </form>
         )}
 

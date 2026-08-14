@@ -20,16 +20,22 @@ import {
 } from 'lucide-react';
 import { MainViewTab, User, APPROVED_ADMIN_EMAILS } from '../types';
 import { isNativeApp } from '../lib/capacitor';
+import { GitHubAccountSwitcher } from './GitHubAccountSwitcher';
 
 interface HeaderProps {
   user: User | null;
   githubToken: string | null;
   githubUsername?: string;
   currentTab: MainViewTab;
+  appIconUrl?: string;
+  appName?: string;
   onNavigateTab: (tab: MainViewTab) => void;
   onOpenAuth: (mode?: 'login' | 'signup') => void;
   onOpenTokenHelp: () => void;
   onLogout: () => void;
+  onSwitchGitHubAccount?: (accountId: string) => void;
+  onOpenAddGitHubAccount?: () => void;
+  onRemoveGitHubAccount?: (accountId: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,10 +43,15 @@ export const Header: React.FC<HeaderProps> = ({
   githubToken,
   githubUsername,
   currentTab,
+  appIconUrl,
+  appName,
   onNavigateTab,
   onOpenAuth,
   onOpenTokenHelp,
-  onLogout
+  onLogout,
+  onSwitchGitHubAccount,
+  onOpenAddGitHubAccount,
+  onRemoveGitHubAccount
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAndroidApp = isNativeApp();
@@ -71,11 +82,22 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => onNavigateTab('landing')}
               className="flex items-center gap-2 text-left cursor-pointer group"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20 group-hover:bg-blue-500 transition">
-                <GitBranch className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20 group-hover:bg-blue-500 transition overflow-hidden p-1 shrink-0">
+                {appIconUrl ? (
+                  <img
+                    src={appIconUrl}
+                    alt="App Icon"
+                    className="w-full h-full object-contain rounded-lg"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <GitBranch className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-sm sm:text-base text-white tracking-tight">SourceLink.ai</span>
+                <span className="font-extrabold text-sm sm:text-base text-white tracking-tight">{appName || 'SourceLink.ai'}</span>
                 {isAndroidApp ? (
                   <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
                     <Smartphone className="w-2.5 h-2.5" /> App
@@ -113,21 +135,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Right Header Controls (lg+) */}
           <div className="hidden lg:flex items-center gap-3 shrink-0">
-            {/* GitHub Token Status Badge */}
-            {githubToken ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="truncate max-w-[110px]">{githubUsername || 'Connected'}</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenAuth('login')}
-                className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition cursor-pointer"
-              >
-                <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Connect PAT</span>
-              </button>
+            {/* Multi-Account GitHub Switcher Component */}
+            {onSwitchGitHubAccount && onOpenAddGitHubAccount && (
+              <GitHubAccountSwitcher
+                user={user}
+                activeToken={githubToken}
+                activeUsername={githubUsername}
+                onSwitchAccount={onSwitchGitHubAccount}
+                onOpenAddModal={onOpenAddGitHubAccount}
+                onOpenSettings={() => onNavigateTab('settings')}
+                onRemoveAccount={onRemoveGitHubAccount}
+                variant="dark"
+              />
             )}
 
             <button
@@ -188,21 +207,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile Bar Right Controls (< lg) - GUARANTEED FIT NO OVERFLOW */}
           <div className="flex lg:hidden items-center gap-2 shrink-0">
-            {/* Quick PAT indicator on mobile */}
-            {githubToken ? (
-              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-medium">
-                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="truncate max-w-[55px]">{githubUsername || 'PAT'}</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenAuth('login')}
-                className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-md text-[10px] font-semibold transition"
-              >
-                <Key className="w-3 h-3 text-amber-400 shrink-0" />
-                <span>PAT</span>
-              </button>
+            {/* Multi-Account GitHub Switcher Component on Mobile */}
+            {onSwitchGitHubAccount && onOpenAddGitHubAccount && (
+              <GitHubAccountSwitcher
+                user={user}
+                activeToken={githubToken}
+                activeUsername={githubUsername}
+                onSwitchAccount={onSwitchGitHubAccount}
+                onOpenAddModal={onOpenAddGitHubAccount}
+                onOpenSettings={() => onNavigateTab('settings')}
+                onRemoveAccount={onRemoveGitHubAccount}
+                variant="dark"
+              />
             )}
 
             {/* 3-Line Menu Trigger Button */}
@@ -310,9 +326,9 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="pt-2.5 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 text-slate-300">
                 <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-[11px]">GitHub PAT:</span>
+                <span className="text-[11px]">GitHub Multi-Account:</span>
                 {githubToken ? (
-                  <span className="text-emerald-400 font-medium text-[11px]">Connected</span>
+                  <span className="text-emerald-400 font-medium text-[11px]">@{githubUsername || 'Connected'}</span>
                 ) : (
                   <span className="text-amber-400 font-medium text-[11px]">Not Connected</span>
                 )}

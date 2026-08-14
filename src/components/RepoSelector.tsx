@@ -1,24 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { GitFork, Plus, ExternalLink, Lock, Globe, Search, RefreshCw, FolderGit2, Check, AlertCircle } from 'lucide-react';
 import { getUserRepos, createRepository } from '../lib/github';
-import { GitHubRepo } from '../types';
+import { GitHubRepo, User } from '../types';
+import { GitHubAccountSwitcher } from './GitHubAccountSwitcher';
 
 interface RepoSelectorProps {
+  user?: User | null;
   githubToken: string | null;
   selectedRepo: GitHubRepo | null;
   targetBranch: string;
   onSelectRepo: (repo: GitHubRepo) => void;
   onChangeBranch: (branch: string) => void;
   onOpenAuth: () => void;
+  onSwitchAccount?: (accountId: string) => void;
+  onOpenAddModal?: () => void;
+  onRemoveAccount?: (accountId: string) => void;
 }
 
 export const RepoSelector: React.FC<RepoSelectorProps> = ({
+  user,
   githubToken,
   selectedRepo,
   targetBranch,
   onSelectRepo,
   onChangeBranch,
   onOpenAuth,
+  onSwitchAccount,
+  onOpenAddModal,
+  onRemoveAccount
 }) => {
   const [activeTab, setActiveTab] = useState<'existing' | 'new'>('existing');
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -95,9 +104,9 @@ export const RepoSelector: React.FC<RepoSelectorProps> = ({
     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs space-y-4">
       
       {/* Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-blue-50 border border-blue-100 text-blue-600 rounded-lg">
+          <div className="p-2 bg-blue-50 border border-blue-100 text-blue-600 rounded-lg shrink-0">
             <FolderGit2 className="w-5 h-5" />
           </div>
           <div>
@@ -106,16 +115,31 @@ export const RepoSelector: React.FC<RepoSelectorProps> = ({
           </div>
         </div>
 
-        {selectedRepo && (
-          <a
-            href={selectedRepo.html_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline font-medium"
-          >
-            Open on GitHub <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
+        {/* Account Switcher or GitHub Link */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {onSwitchAccount && onOpenAddModal && githubToken && (
+            <GitHubAccountSwitcher
+              user={user || null}
+              activeToken={githubToken}
+              activeUsername={user?.githubUsername}
+              onSwitchAccount={onSwitchAccount}
+              onOpenAddModal={onOpenAddModal}
+              onRemoveAccount={onRemoveAccount}
+              variant="light"
+            />
+          )}
+
+          {selectedRepo && (
+            <a
+              href={selectedRepo.html_url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline font-medium"
+            >
+              Open on GitHub <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
       </div>
 
       {!githubToken ? (

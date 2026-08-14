@@ -16,19 +16,23 @@ import { LegalViews } from './components/LegalViews';
 import { AdminView } from './components/AdminView';
 import { EmailVerificationView } from './components/EmailVerificationView';
 import { AuthFirstScreen } from './components/AuthFirstScreen';
+import { AddGitHubAccountModal } from './components/AddGitHubAccountModal';
 
-import { getStoredUser, setStoredUser, getStoredGitHubToken, setStoredGitHubToken, loginGitHubUser } from './lib/auth';
+import { getStoredUser, setStoredUser, getStoredGitHubToken, setStoredGitHubToken, loginGitHubUser, switchGitHubAccountApi, removeGitHubAccountApi } from './lib/auth';
 import { computeDiffsWithGitHub, pushChangesToGitHub } from './lib/github';
 import { User, ExtractedFile, FileDiff, GitHubRepo, SyncLog, MainViewTab } from './types';
 import { ZipExtractionResult } from './lib/zipExtractor';
 import { setupAndroidBackButton } from './lib/capacitor';
 import { apiFetch } from './lib/api';
+import { syncPublicAppConfig, getCachedAppIconUrl } from './lib/appConfig';
 import { Sparkles, CheckCircle2, ShieldCheck, ArrowRight, UploadCloud, GitBranch, FolderGit2, ChevronLeft, ChevronRight, Layers, LayoutGrid, FileCode, GitCompare, FileArchive } from 'lucide-react';
 
 export default function App() {
   // Navigation & SaaS State
   const [currentTab, setCurrentTab] = useState<MainViewTab>('workspace');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [appIconUrl, setAppIconUrl] = useState<string>(getCachedAppIconUrl);
+  const [appName, setAppName] = useState<string>('SourceLink.ai');
 
   // Step-by-Step Workspace Slider State (1: Upload & Repo, 2: Diff & Sync, 3: Code Workspace)
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
@@ -61,6 +65,70 @@ export default function App() {
   const [isTokenHelpOpen, setIsTokenHelpOpen] = useState(false);
   const [isSyncLogsOpen, setIsSyncLogsOpen] = useState(false);
   const [isPushModalOpen, setIsPushModalOpen] = useState(false);
+  const [isAddGitHubModalOpen, setIsAddGitHubModalOpen] = useState(false);
+
+  // Multi-Account GitHub Switcher Handler
+  const handleSwitchGitHubAccount = async (accountId: string) => {
+    if (!user) return;
+    try {
+      const updatedUser = await switchGitHubAccountApi(user.email, accountId);
+      setUser(updatedUser);
+      setStoredUser(updatedUser);
+
+      const activeAccount = updatedUser.githubAccounts?.find(a => a.id === updatedUser.activeGitHubId);
+      if (activeAccount) {
+        setGithubToken(activeAccount.token);
+        setStoredGitHubToken(activeAccount.token);
+        showToast(`Switched active GitHub account to @${activeAccount.username}!`);
+
+        // Trigger diff calculation for newly active account
+        if (extractedFiles.size > 0 && selectedRepo) {
+          handleRunDiff(extractedFiles, activeAccount.token, selectedRepo, targetBranch);
+        }
+      }
+    } catch (err: any) {
+      showToast(`Account switch failed: ${err.message}`, 'error');
+    }
+  };
+
+  // Multi-Account GitHub Remove Handler
+  const handleRemoveGitHubAccount = async (accountId: string) => {
+    if (!user) return;
+    try {
+      const updatedUser = await removeGitHubAccountApi(user.email, accountId);
+      setUser(updatedUser);
+      setStoredUser(updatedUser);
+
+      const activeAccount = updatedUser.githubAccounts?.find(a => a.id === updatedUser.activeGitHubId);
+      if (activeAccount) {
+        setGithubToken(activeAccount.token);
+        setStoredGitHubToken(activeAccount.token);
+      } else if (!updatedUser.githubAccounts || updatedUser.githubAccounts.length === 0) {
+        setGithubToken(null);
+        setStoredGitHubToken('');
+      }
+
+      showToast('Removed GitHub account.');
+    } catch (err: any) {
+      showToast(`Failed to remove account: ${err.message}`, 'error');
+    }
+  };
+
+  // Multi-Account GitHub Add Success Handler
+  const handleAddGitHubAccountSuccess = (updatedUser: User, newActiveToken: string) => {
+    setUser(updatedUser);
+    setStoredUser(updatedUser);
+    setGithubToken(newActiveToken);
+    setStoredGitHubToken(newActiveToken);
+    setIsAddGitHubModalOpen(false);
+
+    const activeAcc = updatedUser.githubAccounts?.find(a => a.id === updatedUser.activeGitHubId);
+    showToast(`Successfully added and connected @${activeAcc?.username || 'GitHub account'}!`);
+
+    if (extractedFiles.size > 0 && selectedRepo) {
+      handleRunDiff(extractedFiles, newActiveToken, selectedRepo, targetBranch);
+    }
+  };
 
   // Push confirmation modal payload
   const [pushPayload, setPushPayload] = useState<{
@@ -74,6 +142,23 @@ export default function App() {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  // Sync Public App System Configuration (Icon & Name) on Mount & Listen for Live Icon Updates
+  useEffect(() => {
+    syncPublicAppConfig().then((cfg) => {
+      if (cfg.appIconUrl) setAppIconUrl(cfg.appIconUrl);
+      if (cfg.appName) setAppName(cfg.appName);
+    });
+
+    const handleIconChange = (e: any) => {
+      if (e.detail?.iconUrl) {
+        setAppIconUrl(e.detail.iconUrl);
+      }
+    };
+
+    window.addEventListener('app_icon_changed', handleIconChange);
+    return () => window.removeEventListener('app_icon_changed', handleIconChange);
+  }, []);
 
   // Register Android Hardware Back-Button Listener
   useEffect(() => {
@@ -328,10 +413,15 @@ export default function App() {
           githubToken={githubToken}
           githubUsername={user?.githubUsername}
           currentTab={currentTab}
+          appIconUrl={appIconUrl}
+          appName={appName}
           onNavigateTab={(tab) => setCurrentTab(tab)}
           onOpenAuth={handleOpenAuthModal}
           onOpenTokenHelp={() => setIsTokenHelpOpen(true)}
           onLogout={handleLogout}
+          onSwitchGitHubAccount={handleSwitchGitHubAccount}
+          onOpenAddGitHubAccount={() => setIsAddGitHubModalOpen(true)}
+          onRemoveGitHubAccount={handleRemoveGitHubAccount}
         />
       )}
 
@@ -341,6 +431,8 @@ export default function App() {
           onAuthSuccess={handleAuthSuccess}
           onViewTerms={() => setCurrentTab('terms')}
           onViewPrivacy={() => setCurrentTab('privacy')}
+          appIconUrl={appIconUrl}
+          appName={appName}
         />
       ) : user && !user.emailVerified && currentTab !== 'landing' ? (
         /* Mandatory Email Verification Barrier */
@@ -381,6 +473,9 @@ export default function App() {
               handleLogout();
               setCurrentTab('landing');
             }}
+            onSwitchAccount={handleSwitchGitHubAccount}
+            onOpenAddModal={() => setIsAddGitHubModalOpen(true)}
+            onRemoveAccount={handleRemoveGitHubAccount}
           />
         </div>
       )}
@@ -413,6 +508,7 @@ export default function App() {
             <p className="text-xs text-slate-400 mt-1">Select a repository to link with your ZIP source workspace.</p>
           </div>
           <RepoSelector
+            user={user}
             githubToken={githubToken}
             selectedRepo={selectedRepo}
             targetBranch={targetBranch}
@@ -422,6 +518,9 @@ export default function App() {
             }}
             onChangeBranch={(b) => setTargetBranch(b)}
             onOpenAuth={() => handleOpenAuthModal('login')}
+            onSwitchAccount={handleSwitchGitHubAccount}
+            onOpenAddModal={() => setIsAddGitHubModalOpen(true)}
+            onRemoveAccount={handleRemoveGitHubAccount}
           />
         </div>
       )}
@@ -604,6 +703,7 @@ export default function App() {
                       />
 
                       <RepoSelector
+                        user={user}
                         githubToken={githubToken}
                         selectedRepo={selectedRepo}
                         targetBranch={targetBranch}
@@ -615,6 +715,9 @@ export default function App() {
                           }
                         }}
                         onOpenAuth={() => handleOpenAuthModal('login')}
+                        onSwitchAccount={handleSwitchGitHubAccount}
+                        onOpenAddModal={() => setIsAddGitHubModalOpen(true)}
+                        onRemoveAccount={handleRemoveGitHubAccount}
                       />
                     </div>
 
@@ -718,6 +821,7 @@ export default function App() {
                   />
 
                   <RepoSelector
+                    user={user}
                     githubToken={githubToken}
                     selectedRepo={selectedRepo}
                     targetBranch={targetBranch}
@@ -729,6 +833,9 @@ export default function App() {
                       }
                     }}
                     onOpenAuth={() => handleOpenAuthModal('login')}
+                    onSwitchAccount={handleSwitchGitHubAccount}
+                    onOpenAddModal={() => setIsAddGitHubModalOpen(true)}
+                    onRemoveAccount={handleRemoveGitHubAccount}
                   />
                 </div>
 
@@ -800,6 +907,13 @@ export default function App() {
         onConfirmPush={handleExecutePush}
         githubToken={githubToken}
         initialRemoteHeadSha={remoteHeadSha}
+      />
+
+      <AddGitHubAccountModal
+        isOpen={isAddGitHubModalOpen}
+        user={user}
+        onClose={() => setIsAddGitHubModalOpen(false)}
+        onSuccess={handleAddGitHubAccountSuccess}
       />
 
         </>
