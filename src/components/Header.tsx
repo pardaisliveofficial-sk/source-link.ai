@@ -16,7 +16,8 @@ import {
   Menu, 
   X,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import { MainViewTab, User, APPROVED_ADMIN_EMAILS } from '../types';
 import { isNativeApp } from '../lib/capacitor';
@@ -60,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems: { id: MainViewTab; label: string; icon: React.ReactNode }[] = [
     { id: 'workspace', label: 'Studio Workspace', icon: <Layout className="w-4 h-4" /> },
+    { id: 'preview', label: 'Live Applet', icon: <Zap className="w-4 h-4 text-emerald-400" /> },
     { id: 'repos', label: 'Repositories', icon: <FolderGit2 className="w-4 h-4" /> },
     { id: 'history', label: 'Sync History', icon: <History className="w-4 h-4" /> },
     { id: 'usage', label: 'Usage', icon: <Activity className="w-4 h-4" /> },

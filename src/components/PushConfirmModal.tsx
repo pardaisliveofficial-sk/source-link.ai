@@ -166,6 +166,29 @@ export const PushConfirmModal: React.FC<PushConfirmModalProps> = ({
               </div>
             </div>
 
+            {/* Android APK GitHub Actions info */}
+            {selectedRepo && (
+              <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 border border-indigo-200 rounded-lg p-3 text-xs text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-indigo-900">
+                    <span>📱 Android APK Builder:</span>
+                  </div>
+                  <a
+                    href={`https://github.com/${selectedRepo.full_name}/actions`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold transition flex items-center gap-1"
+                  >
+                    <span>View Actions & Download APK</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <p className="text-[11px] text-indigo-700/90 mt-1">
+                  GitHub Actions will compile your code into an installable Android <span className="font-mono font-bold">.apk</span> file.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 pt-2">
               <a
                 href={pushedResult.commitUrl}

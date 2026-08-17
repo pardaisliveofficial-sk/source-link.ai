@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileArchive, CheckCircle2, RefreshCw, FolderTree, Sparkles, Filter, Info, Layers } from 'lucide-react';
+import { Upload, FileArchive, CheckCircle2, RefreshCw, FolderTree, Sparkles, Filter, Info, Layers, Zap } from 'lucide-react';
 import { extractZipArchive, formatBytes, ZipExtractionResult } from '../lib/zipExtractor';
 import { ExtractedFile } from '../types';
 
@@ -9,6 +9,7 @@ interface ZipUploaderProps {
   extractedCount: number;
   currentZipName: string | null;
   extractionMeta?: ZipExtractionResult | null;
+  onOpenPreview?: () => void;
 }
 
 export const ZipUploader: React.FC<ZipUploaderProps> = ({
@@ -17,6 +18,7 @@ export const ZipUploader: React.FC<ZipUploaderProps> = ({
   extractedCount,
   currentZipName,
   extractionMeta,
+  onOpenPreview,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,13 +130,26 @@ export const ZipUploader: React.FC<ZipUploaderProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full sm:w-auto px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 border border-gray-300 cursor-pointer shrink-0 shadow-2xs"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              New ZIP
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              {onOpenPreview && (
+                <button
+                  type="button"
+                  onClick={onOpenPreview}
+                  className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>⚡ Test in Live Applet</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full sm:w-auto px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-gray-300 cursor-pointer shadow-2xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                New ZIP
+              </button>
+            </div>
           </div>
 
           {/* Ignored Breakdown Info */}

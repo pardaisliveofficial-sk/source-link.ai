@@ -20,6 +20,8 @@ interface AuthFirstScreenProps {
   onAuthSuccess: (user: User, token?: string) => void;
   onViewTerms: () => void;
   onViewPrivacy: () => void;
+  onContinueAsGuest?: () => void;
+  onOpenLivePreview?: () => void;
   appIconUrl?: string;
   appName?: string;
 }
@@ -28,6 +30,8 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
   onAuthSuccess,
   onViewTerms,
   onViewPrivacy,
+  onContinueAsGuest,
+  onOpenLivePreview,
   appIconUrl,
   appName
 }) => {
@@ -373,8 +377,33 @@ export const AuthFirstScreen: React.FC<AuthFirstScreenProps> = ({
 
           </form>
 
+          {/* Quick Instant Access / Guest Buttons */}
+          <div className="mt-5 pt-4 border-t border-slate-800 space-y-2">
+            {onOpenLivePreview && (
+              <button
+                type="button"
+                onClick={onOpenLivePreview}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4 fill-amber-300 text-amber-300" />
+                <span>⚡ Test Live Applet Sandbox (No Login Required)</span>
+              </button>
+            )}
+
+            {onContinueAsGuest && (
+              <button
+                type="button"
+                onClick={onContinueAsGuest}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl transition-all cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
+              >
+                <span>Continue to Studio Workspace as Guest</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           {/* Security Banner */}
-          <div className="mt-6 text-center text-[10px] text-slate-500 flex items-center justify-center gap-1.5">
+          <div className="mt-4 text-center text-[10px] text-slate-500 flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Persistent session — stays logged in until you choose to log out.</span>
           </div>

@@ -165,6 +165,7 @@ export interface UsageStats {
 export type MainViewTab = 
   | 'landing' 
   | 'workspace' 
+  | 'preview'
   | 'repos' 
   | 'history' 
   | 'pricing' 
@@ -237,4 +238,66 @@ export interface AppState {
   isDiffing: boolean;
   isPushing: boolean;
   zipName: string | null;
+}
+
+export interface AIAssistantModifiedFile {
+  path: string;
+  newContent: string;
+  diffSummary?: string;
+}
+
+export interface SandboxLogEntry {
+  id: string;
+  type: 'log' | 'info' | 'warn' | 'error';
+  message: string;
+  details?: string | null;
+  timestamp: string;
+}
+
+export interface AIAssistantAttachedImage {
+  id: string;
+  name: string;
+  dataUrl: string;
+  size?: number;
+  type?: string;
+}
+
+export interface AIAssistantReferencedFile {
+  path: string;
+  name: string;
+  size?: number;
+  content?: string;
+}
+
+export interface AIAssistantMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  language?: 'urdu' | 'hindi' | 'english' | 'auto';
+  modifiedFiles?: AIAssistantModifiedFile[];
+  apkReadyNotes?: string;
+  suggestedQuestions?: string[];
+  isApplied?: boolean;
+  status?: 'thinking' | 'success' | 'error';
+  attachedImages?: AIAssistantAttachedImage[];
+  referencedFiles?: AIAssistantReferencedFile[];
+}
+
+export interface AIAssistRequest {
+  prompt: string;
+  language?: string;
+  currentFile?: string;
+  files: Array<{ path: string; content: string }>;
+  recentLogs?: Array<{ type: string; message: string }>;
+  taskType?: 'fix_code' | 'add_feature' | 'apk_workflow' | 'chat';
+  attachedImages?: Array<{ name: string; dataUrl: string }>;
+  referencedFiles?: Array<{ path: string; name: string; content?: string }>;
+}
+
+export interface AIAssistResponse {
+  explanation: string;
+  modifiedFiles: AIAssistantModifiedFile[];
+  apkReadyNotes?: string;
+  suggestedQuestions?: string[];
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code, Save, FileText, Folder, Check, Edit3, Sparkles } from 'lucide-react';
+import { Code, Save, FileText, Folder, Check, Edit3, Sparkles, Zap } from 'lucide-react';
 import { ExtractedFile } from '../types';
 
 interface CodeWorkspaceProps {
@@ -7,6 +7,7 @@ interface CodeWorkspaceProps {
   selectedPath: string | null;
   onSelectPath: (path: string) => void;
   onUpdateFileContent: (path: string, newContent: string) => void;
+  onOpenPreview?: () => void;
 }
 
 export const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({
@@ -14,6 +15,7 @@ export const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({
   selectedPath,
   onSelectPath,
   onUpdateFileContent,
+  onOpenPreview,
 }) => {
   const [editedContent, setEditedContent] = useState<string>('');
   const [isSaved, setIsSaved] = useState(false);
@@ -56,15 +58,28 @@ export const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({
           </div>
         </div>
 
-        {activeFile && !activeFile.isBinary && (
-          <button
-            onClick={handleSave}
-            className="px-3.5 py-1.5 bg-[#24292F] hover:bg-black text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            {isSaved ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Save className="w-3.5 h-3.5" />}
-            {isSaved ? 'Saved & Marked Modified!' : 'Save Changes'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {files.size > 0 && onOpenPreview && (
+            <button
+              type="button"
+              onClick={onOpenPreview}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ring-1 ring-white/20"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>AI Assistant & Sandbox (اردو / Eng / Hin)</span>
+            </button>
+          )}
+
+          {activeFile && !activeFile.isBinary && (
+            <button
+              onClick={handleSave}
+              className="px-3.5 py-1.5 bg-[#24292F] hover:bg-black text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              {isSaved ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Save className="w-3.5 h-3.5" />}
+              {isSaved ? 'Saved & Marked Modified!' : 'Save Changes'}
+            </button>
+          )}
+        </div>
       </div>
 
       {files.size === 0 ? (

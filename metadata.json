@@ -1,6 +1,6 @@
 {
   "name": "SourceLink.ai",
-  "description": "Public SaaS & Android platform for smart GitHub code sync, ZIP extraction, AI diff analysis, and selective repository pushing.",
-  "requestFramePermissions": [],
+  "description": "Public SaaS & Android platform for smart GitHub code sync, ZIP extraction, live interactive Applet preview & testing sandbox, AI diff analysis, and selective repository pushing.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

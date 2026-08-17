@@ -17,6 +17,7 @@ import { AdminView } from './components/AdminView';
 import { EmailVerificationView } from './components/EmailVerificationView';
 import { AuthFirstScreen } from './components/AuthFirstScreen';
 import { AddGitHubAccountModal } from './components/AddGitHubAccountModal';
+import { AppletPreviewView } from './components/AppletPreviewView';
 
 import { getStoredUser, setStoredUser, getStoredGitHubToken, setStoredGitHubToken, loginGitHubUser, switchGitHubAccountApi, removeGitHubAccountApi } from './lib/auth';
 import { computeDiffsWithGitHub, pushChangesToGitHub } from './lib/github';
@@ -386,6 +387,40 @@ export default function App() {
     showToast(`Account plan updated to ${newPlan.toUpperCase()}`);
   };
 
+  const handleContinueAsGuest = () => {
+    const guestUser: User = {
+      id: 'guest-' + Date.now(),
+      email: 'guest@sourcelink.ai',
+      name: 'Guest Explorer',
+      authProvider: 'email',
+      plan: 'pro',
+      emailVerified: true,
+      createdAt: new Date().toISOString(),
+      githubAccounts: []
+    };
+    setUser(guestUser);
+    setStoredUser(guestUser);
+    setCurrentTab('workspace');
+    showToast('Welcome! Exploring SourceLink Studio Workspace.');
+  };
+
+  const handleOpenGuestPreview = () => {
+    const guestUser: User = {
+      id: 'guest-' + Date.now(),
+      email: 'guest@sourcelink.ai',
+      name: 'Guest Explorer',
+      authProvider: 'email',
+      plan: 'pro',
+      emailVerified: true,
+      createdAt: new Date().toISOString(),
+      githubAccounts: []
+    };
+    setUser(guestUser);
+    setStoredUser(guestUser);
+    setCurrentTab('preview');
+    showToast('Welcome! Live Applet Previewer ready.');
+  };
+
   const handleOpenAuthModal = (mode: 'login' | 'signup' = 'login') => {
     setAuthMode(mode);
     setIsAuthOpen(true);
@@ -431,6 +466,8 @@ export default function App() {
           onAuthSuccess={handleAuthSuccess}
           onViewTerms={() => setCurrentTab('terms')}
           onViewPrivacy={() => setCurrentTab('privacy')}
+          onContinueAsGuest={handleContinueAsGuest}
+          onOpenLivePreview={handleOpenGuestPreview}
           appIconUrl={appIconUrl}
           appName={appName}
         />
@@ -557,6 +594,15 @@ export default function App() {
             )}
           </div>
         </div>
+      )}
+
+      {currentTab === 'preview' && (
+        <AppletPreviewView
+          extractedFiles={extractedFiles}
+          onUpdateFileContent={handleUpdateFileContent}
+          onFilesExtracted={handleFilesExtracted}
+          onNavigateTab={(tab) => setCurrentTab(tab)}
+        />
       )}
 
       {/* Main Studio Workspace Tab */}
@@ -700,6 +746,7 @@ export default function App() {
                         extractedCount={extractedFiles ? extractedFiles.size : 0}
                         currentZipName={zipName}
                         extractionMeta={extractionMeta}
+                        onOpenPreview={() => setCurrentTab('preview')}
                       />
 
                       <RepoSelector
@@ -787,6 +834,7 @@ export default function App() {
                       selectedPath={inspectorPath}
                       onSelectPath={(p) => setInspectorPath(p)}
                       onUpdateFileContent={handleUpdateFileContent}
+                      onOpenPreview={() => setCurrentTab('preview')}
                     />
 
                     {/* Step 3 Slide Footer Navigation */}
@@ -818,6 +866,7 @@ export default function App() {
                     extractedCount={extractedFiles ? extractedFiles.size : 0}
                     currentZipName={zipName}
                     extractionMeta={extractionMeta}
+                    onOpenPreview={() => setCurrentTab('preview')}
                   />
 
                   <RepoSelector
@@ -855,6 +904,7 @@ export default function App() {
                   selectedPath={inspectorPath}
                   onSelectPath={(p) => setInspectorPath(p)}
                   onUpdateFileContent={handleUpdateFileContent}
+                  onOpenPreview={() => setCurrentTab('preview')}
                 />
               </div>
             )}
